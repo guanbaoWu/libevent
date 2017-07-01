@@ -249,8 +249,8 @@ bufferevent_writecb(evutil_socket_t fd, short event, void *arg)
 		/* we need to fake the error if the connection was refused
 		 * immediately - usually connection to localhost on BSD */
 		if (bufev_p->connection_refused) {
-		  bufev_p->connection_refused = 0;
-		  c = -1;
+			bufev_p->connection_refused = 0;
+			c = -1;
 		}
 
 		if (c == 0)
@@ -438,13 +438,12 @@ bufferevent_socket_connect(struct bufferevent *bev,
 		/* The connect succeeded already. How very BSD of it. */
 		result = 0;
 		bufev_p->connecting = 1;
-		event_active(&bev->ev_write, EV_WRITE, 1);
+		bufferevent_trigger_nolock_(bev, EV_WRITE, BEV_OPT_DEFER_CALLBACKS);
 	} else {
 		/* The connect failed already.  How very BSD of it. */
-		bufev_p->connection_refused = 1;
-		bufev_p->connecting = 1;
 		result = 0;
-		event_active(&bev->ev_write, EV_WRITE, 1);
+		bufferevent_run_eventcb_(bev, BEV_EVENT_ERROR, BEV_OPT_DEFER_CALLBACKS);
+		bufferevent_disable(bev, EV_WRITE|EV_READ);
 	}
 
 	goto done;
@@ -608,7 +607,7 @@ be_socket_destruct(struct bufferevent *bufev)
 	struct bufferevent_private *bufev_p =
 	    EVUTIL_UPCAST(bufev, struct bufferevent_private, bev);
 	evutil_socket_t fd;
-	EVUTIL_ASSERT(bufev->be_ops == &bufferevent_ops_socket);
+	EVUTIL_ASSERT(BEV_IS_SOCKET(bufev));
 
 	fd = event_get_fd(&bufev->ev_read);
 
@@ -633,7 +632,7 @@ be_socket_setfd(struct bufferevent *bufev, evutil_socket_t fd)
 	    EVUTIL_UPCAST(bufev, struct bufferevent_private, bev);
 
 	BEV_LOCK(bufev);
-	EVUTIL_ASSERT(bufev->be_ops == &bufferevent_ops_socket);
+	EVUTIL_ASSERT(BEV_IS_SOCKET(bufev));
 
 	event_del(&bufev->ev_read);
 	event_del(&bufev->ev_write);
@@ -663,7 +662,7 @@ bufferevent_priority_set(struct bufferevent *bufev, int priority)
 	    EVUTIL_UPCAST(bufev, struct bufferevent_private, bev);
 
 	BEV_LOCK(bufev);
-	if (bufev->be_ops != &bufferevent_ops_socket)
+	if (!BEV_IS_SOCKET(bufev))
 		goto done;
 
 	if (event_priority_set(&bufev->ev_read, priority) == -1)
@@ -686,7 +685,7 @@ bufferevent_base_set(struct event_base *base, struct bufferevent *bufev)
 	int res = -1;
 
 	BEV_LOCK(bufev);
-	if (bufev->be_ops != &bufferevent_ops_socket)
+	if (!BEV_IS_SOCKET(bufev))
 		goto done;
 
 	bufev->ev_base = base;

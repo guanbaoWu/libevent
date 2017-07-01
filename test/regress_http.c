@@ -85,6 +85,7 @@ static void http_on_complete_cb(struct evhttp_request *req, void *arg);
 
 #define HTTP_BIND_IPV6 1
 #define HTTP_BIND_SSL 2
+#define HTTP_SSL_FILTER 4
 static int
 http_bind(struct evhttp *myhttp, ev_uint16_t *pport, int mask)
 {
@@ -424,18 +425,25 @@ http_complete_write(evutil_socket_t fd, short what, void *arg)
 }
 
 static struct bufferevent *
-create_bev(struct event_base *base, int fd, int ssl)
+create_bev(struct event_base *base, int fd, int ssl_mask)
 {
 	int flags = BEV_OPT_DEFER_CALLBACKS;
 	struct bufferevent *bev = NULL;
 
-	if (!ssl) {
+	if (!ssl_mask) {
 		bev = bufferevent_socket_new(base, fd, flags);
 	} else {
 #ifdef EVENT__HAVE_OPENSSL
 		SSL *ssl = SSL_new(get_ssl_ctx());
-		bev = bufferevent_openssl_socket_new(
-			base, fd, ssl, BUFFEREVENT_SSL_CONNECTING, flags);
+		if (ssl_mask & HTTP_SSL_FILTER) {
+			struct bufferevent *underlying =
+				bufferevent_socket_new(base, fd, flags);
+			bev = bufferevent_openssl_filter_new(
+				base, underlying, ssl, BUFFEREVENT_SSL_CONNECTING, flags);
+		} else {
+			bev = bufferevent_openssl_socket_new(
+				base, fd, ssl, BUFFEREVENT_SSL_CONNECTING, flags);
+		}
 		bufferevent_openssl_set_allow_dirty_shutdown(bev, 1);
 #endif
 	}
@@ -537,8 +545,7 @@ http_basic_test_impl(void *arg, int ssl)
 	if (bev)
 		bufferevent_free(bev);
 }
-static void http_basic_test(void *arg)
-{ return http_basic_test_impl(arg, 0); }
+static void http_basic_test(void *arg) { http_basic_test_impl(arg, 0); }
 
 
 static void
@@ -3319,7 +3326,7 @@ http_chunk_out_test_impl(void *arg, int ssl)
 		evhttp_free(http);
 }
 static void http_chunk_out_test(void *arg)
-{ return http_chunk_out_test_impl(arg, 0); }
+{ http_chunk_out_test_impl(arg, 0); }
 
 static void
 http_stream_out_test_impl(void *arg, int ssl)
@@ -3365,7 +3372,7 @@ http_stream_out_test_impl(void *arg, int ssl)
 		evhttp_free(http);
 }
 static void http_stream_out_test(void *arg)
-{ return http_stream_out_test_impl(arg, 0); }
+{ http_stream_out_test_impl(arg, 0); }
 
 static void
 http_stream_in_chunk(struct evhttp_request *req, void *arg)
@@ -3561,7 +3568,7 @@ http_connection_fail_test_impl(void *arg, int ssl)
 	;
 }
 static void http_connection_fail_test(void *arg)
-{ return http_connection_fail_test_impl(arg, 0); }
+{ http_connection_fail_test_impl(arg, 0); }
 
 static void
 http_connection_retry_done(struct evhttp_request *req, void *arg)
@@ -3600,7 +3607,7 @@ http_simple_test_impl(void *arg, int ssl, int dirty)
 	struct evhttp_connection *evcon = NULL;
 	struct evhttp_request *req = NULL;
 	struct bufferevent *bev;
-	struct http_server hs = { .port = 0, .ssl = ssl, };
+	struct http_server hs = { 0, ssl, NULL, };
 	struct evhttp *http = http_setup(&hs.port, data->base, ssl ? HTTP_BIND_SSL : 0);
 
 	exit_base = data->base;
@@ -3633,7 +3640,7 @@ http_simple_test_impl(void *arg, int ssl, int dirty)
 		evhttp_free(http);
 }
 static void http_simple_test(void *arg)
-{ return http_simple_test_impl(arg, 0, 0); }
+{ http_simple_test_impl(arg, 0, 0); }
 
 static void
 http_connection_retry_test_basic(void *arg, const char *addr, struct evdns_base *dns_base, int ssl)
@@ -3643,7 +3650,7 @@ http_connection_retry_test_basic(void *arg, const char *addr, struct evdns_base 
 	struct evhttp_request *req = NULL;
 	struct timeval tv, tv_start, tv_end;
 	struct bufferevent *bev;
-	struct http_server hs = { .port = 0, .ssl = ssl, };
+	struct http_server hs = { 0, ssl, NULL, };
 	struct evhttp *http = http_setup(&hs.port, data->base, ssl ? HTTP_BIND_SSL : 0);
 
 	exit_base = data->base;
@@ -3790,16 +3797,16 @@ http_connection_retry_conn_address_test_impl(void *arg, int ssl)
 	/** dnsserver will be cleaned in http_connection_retry_test_basic() */
 }
 static void http_connection_retry_conn_address_test(void *arg)
-{ return http_connection_retry_conn_address_test_impl(arg, 0); }
+{ http_connection_retry_conn_address_test_impl(arg, 0); }
 
 static void
 http_connection_retry_test_impl(void *arg, int ssl)
 {
-	return http_connection_retry_test_basic(arg, "127.0.0.1", NULL, ssl);
+	http_connection_retry_test_basic(arg, "127.0.0.1", NULL, ssl);
 }
 static void
 http_connection_retry_test(void *arg)
-{ return http_connection_retry_test_impl(arg, 0); }
+{ http_connection_retry_test_impl(arg, 0); }
 
 static void
 http_primitives(void *ptr)
@@ -4466,7 +4473,7 @@ http_write_during_read_test_impl(void *arg, int ssl)
 		evhttp_free(http);
 }
 static void http_write_during_read_test(void *arg)
-{ return http_write_during_read_test_impl(arg, 0); }
+{ http_write_during_read_test_impl(arg, 0); }
 
 static void
 http_request_own_test(void *arg)
@@ -4508,6 +4515,8 @@ http_request_own_test(void *arg)
 		    http_##name##_test }
 
 #define HTTP_CAST_ARG(a) ((void *)(a))
+#define HTTP_OFF_N(title, name, arg) \
+	{ #title, http_##name##_test, TT_ISOLATED|TT_OFF_BY_DEFAULT, &basic_setup, HTTP_CAST_ARG(arg) }
 #define HTTP_N(title, name, arg) \
 	{ #title, http_##name##_test, TT_ISOLATED, &basic_setup, HTTP_CAST_ARG(arg) }
 #define HTTP(name) HTTP_N(name, name, NULL)
@@ -4516,31 +4525,35 @@ http_request_own_test(void *arg)
 
 #ifdef EVENT__HAVE_OPENSSL
 static void https_basic_test(void *arg)
-{ return http_basic_test_impl(arg, 1); }
+{ http_basic_test_impl(arg, 1); }
+static void https_filter_basic_test(void *arg)
+{ http_basic_test_impl(arg, 1 | HTTP_SSL_FILTER); }
 static void https_incomplete_test(void *arg)
 { http_incomplete_test_(arg, 0, 1); }
 static void https_incomplete_timeout_test(void *arg)
 { http_incomplete_test_(arg, 1, 1); }
 static void https_simple_test(void *arg)
-{ return http_simple_test_impl(arg, 1, 0); }
+{ http_simple_test_impl(arg, 1, 0); }
 static void https_simple_dirty_test(void *arg)
-{ return http_simple_test_impl(arg, 1, 1); }
+{ http_simple_test_impl(arg, 1, 1); }
 static void https_connection_retry_conn_address_test(void *arg)
-{ return http_connection_retry_conn_address_test_impl(arg, 1); }
+{ http_connection_retry_conn_address_test_impl(arg, 1); }
 static void https_connection_retry_test(void *arg)
-{ return http_connection_retry_test_impl(arg, 1); }
+{ http_connection_retry_test_impl(arg, 1); }
 static void https_chunk_out_test(void *arg)
-{ return http_chunk_out_test_impl(arg, 1); }
+{ http_chunk_out_test_impl(arg, 1); }
+static void https_filter_chunk_out_test(void *arg)
+{ http_chunk_out_test_impl(arg, 1 | HTTP_SSL_FILTER); }
 static void https_stream_out_test(void *arg)
-{ return http_stream_out_test_impl(arg, 1); }
+{ http_stream_out_test_impl(arg, 1); }
 static void https_connection_fail_test(void *arg)
-{ return http_connection_fail_test_impl(arg, 1); }
+{ http_connection_fail_test_impl(arg, 1); }
 static void https_write_during_read_test(void *arg)
-{ return http_write_during_read_test_impl(arg, 1); }
+{ http_write_during_read_test_impl(arg, 1); }
 static void https_connection_test(void *arg)
-{ return http_connection_test_(arg, 0, "127.0.0.1", NULL, 0, AF_UNSPEC, 1); }
+{ http_connection_test_(arg, 0, "127.0.0.1", NULL, 0, AF_UNSPEC, 1); }
 static void https_persist_connection_test(void *arg)
-{ return http_connection_test_(arg, 1, "127.0.0.1", NULL, 0, AF_UNSPEC, 1); }
+{ http_connection_test_(arg, 1, "127.0.0.1", NULL, 0, AF_UNSPEC, 1); }
 #endif
 
 struct testcase_t http_testcases[] = {
@@ -4560,12 +4573,10 @@ struct testcase_t http_testcases[] = {
 	HTTP_N(cancel_by_host_inactive_server, cancel, BY_HOST | INACTIVE_SERVER),
 	HTTP_N(cancel_inactive_server, cancel, INACTIVE_SERVER),
 	HTTP_N(cancel_by_host_no_ns_inactive_server, cancel, BY_HOST | NO_NS | INACTIVE_SERVER),
-#ifndef __FreeBSD__
-	HTTP_N(cancel_by_host_server_timeout, cancel, BY_HOST | INACTIVE_SERVER | SERVER_TIMEOUT),
-	HTTP_N(cancel_server_timeout, cancel, INACTIVE_SERVER | SERVER_TIMEOUT),
-	HTTP_N(cancel_by_host_no_ns_server_timeout, cancel, BY_HOST | NO_NS | INACTIVE_SERVER | SERVER_TIMEOUT),
-	HTTP_N(cancel_by_host_ns_timeout_server_timeout, cancel, BY_HOST | NO_NS | NS_TIMEOUT | INACTIVE_SERVER | SERVER_TIMEOUT),
-#endif
+	HTTP_OFF_N(cancel_by_host_server_timeout, cancel, BY_HOST | INACTIVE_SERVER | SERVER_TIMEOUT),
+	HTTP_OFF_N(cancel_server_timeout, cancel, INACTIVE_SERVER | SERVER_TIMEOUT),
+	HTTP_OFF_N(cancel_by_host_no_ns_server_timeout, cancel, BY_HOST | NO_NS | INACTIVE_SERVER | SERVER_TIMEOUT),
+	HTTP_OFF_N(cancel_by_host_ns_timeout_server_timeout, cancel, BY_HOST | NO_NS | NS_TIMEOUT | INACTIVE_SERVER | SERVER_TIMEOUT),
 	HTTP_N(cancel_by_host_ns_timeout, cancel, BY_HOST | NO_NS | NS_TIMEOUT),
 	HTTP_N(cancel_by_host_ns_timeout_inactive_server, cancel, BY_HOST | NO_NS | NS_TIMEOUT | INACTIVE_SERVER),
 
@@ -4620,6 +4631,7 @@ struct testcase_t http_testcases[] = {
 
 #ifdef EVENT__HAVE_OPENSSL
 	HTTPS(basic),
+	HTTPS(filter_basic),
 	HTTPS(simple),
 	HTTPS(simple_dirty),
 	HTTPS(incomplete),
@@ -4628,6 +4640,7 @@ struct testcase_t http_testcases[] = {
 	{ "https_connection_retry_conn_address", https_connection_retry_conn_address_test,
 	  TT_ISOLATED|TT_OFF_BY_DEFAULT, &basic_setup, NULL },
 	HTTPS(chunk_out),
+	HTTPS(filter_chunk_out),
 	HTTPS(stream_out),
 	HTTPS(connection_fail),
 	HTTPS(write_during_read),

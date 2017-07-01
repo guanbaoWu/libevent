@@ -61,7 +61,7 @@ Vagrant.configure("2") do |config|
 
         export CTEST_TEST_TIMEOUT=1800
         export CTEST_OUTPUT_ON_FAILURE=1
-        export CTEST_PARALLEL_LEVEL=10
+        export CTEST_PARALLEL_LEVEL=20
         cmake --build . --target verify
       SHELL
     end
@@ -71,7 +71,7 @@ Vagrant.configure("2") do |config|
         cd /vagrant
         ./autogen.sh
         ./configure
-        make -j4 verify
+        make -j20 verify
       SHELL
     end
   end
@@ -102,7 +102,7 @@ Vagrant.configure("2") do |config|
 
         export CTEST_TEST_TIMEOUT=1800
         export CTEST_OUTPUT_ON_FAILURE=1
-        export CTEST_PARALLEL_LEVEL=10
+        export CTEST_PARALLEL_LEVEL=20
         cmake --build . --target verify
       SHELL
     end
@@ -112,7 +112,7 @@ Vagrant.configure("2") do |config|
         cd /vagrant
         ./autogen.sh
         ./configure
-        make -j4 verify
+        make -j20 verify
       SHELL
     end
   end
@@ -124,13 +124,10 @@ Vagrant.configure("2") do |config|
     netbsd.vm.synced_folder ".vagrant/libevent-netbsd", "/vagrant",
       type: "rsync", group: "wheel"
 
-    # TODO: more reliable way to install packages
     if ENV['NO_PKG'] != "true"
       netbsd.vm.provision "shell", inline: <<-SHELL
-        pkg_add ftp://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/x86_64/7.0_2016Q2/All/ncurses-6.0nb1.tgz
-        pkg_add ftp://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/x86_64/7.0_2016Q2/All/ninja-build-1.7.1.tgz
-        pkg_add ftp://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/x86_64/7.0_2016Q2/All/automake-1.15nb3.tgz
-        pkg_add ftp://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/x86_64/7.0_2016Q2/All/cmake-3.5.2.tgz
+        export PKG_PATH="ftp://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/x86_64/7.0_2016Q2/All/"
+        pkg_add ncurses ninja-build automake cmake libtool
       SHELL
     end
 
@@ -144,7 +141,7 @@ Vagrant.configure("2") do |config|
 
         export CTEST_TEST_TIMEOUT=1800
         export CTEST_OUTPUT_ON_FAILURE=1
-        export CTEST_PARALLEL_LEVEL=10
+        export CTEST_PARALLEL_LEVEL=20
         cmake --build . --target verify
       SHELL
     end
@@ -154,7 +151,7 @@ Vagrant.configure("2") do |config|
         cd /vagrant
         ./autogen.sh
         ./configure
-        make -j4 verify
+        make -j20 verify
       SHELL
     end
   end
@@ -203,7 +200,7 @@ Vagrant.configure("2") do |config|
 
         export CTEST_TEST_TIMEOUT=1800
         export CTEST_OUTPUT_ON_FAILURE=1
-        export CTEST_PARALLEL_LEVEL=10
+        export CTEST_PARALLEL_LEVEL=20
         cmake --build . --target verify
       SHELL
     end
@@ -215,7 +212,7 @@ Vagrant.configure("2") do |config|
         cd ~/vagrant
         ./autogen.sh
         MAKE=gmake ./configure
-        gmake -j4 verify
+        gmake -j20 verify
       SHELL
     end
   end
@@ -252,7 +249,7 @@ Vagrant.configure("2") do |config|
 
         export CTEST_TEST_TIMEOUT=1800
         export CTEST_OUTPUT_ON_FAILURE=1
-        export CTEST_PARALLEL_LEVEL=10
+        export CTEST_PARALLEL_LEVEL=20
         cmake --build . --target verify
       SHELL
     end
@@ -266,7 +263,7 @@ Vagrant.configure("2") do |config|
         cd /vagrant
         ./autogen.sh
         ./configure
-        make -j4 verify
+        make -j20 verify
       SHELL
     end
   end
@@ -303,7 +300,7 @@ Vagrant.configure("2") do |config|
 
         export CTEST_TEST_TIMEOUT=1800
         export CTEST_OUTPUT_ON_FAILURE=1
-        export CTEST_PARALLEL_LEVEL=10
+        export CTEST_PARALLEL_LEVEL=20
         cmake --build . --target verify
       SHELL
     end
@@ -313,7 +310,7 @@ Vagrant.configure("2") do |config|
         cd /vagrant
         ./autogen.sh
         ./configure
-        make -j4 verify
+        make -j20 verify
       SHELL
     end
   end
@@ -393,7 +390,7 @@ Vagrant.configure("2") do |config|
         bash -lc "echo 'C:/OpenSSL-Win32 /ssl ntfs binary 0 0' >> /etc/fstab"
         bash -lc "echo 'C:/vagrant /vagrant ntfs binary 0 0' >> /etc/fstab"
 
-        bash -lc "exec 0</dev/null; exec 2>&1; cd /vagrant; bash -x ./autogen.sh && ./configure LDFLAGS='-L/ssl -L/ssl/lib -L/ssl/lib/MinGW' CFLAGS=-I/ssl/include && make -j4 verify"
+        bash -lc "exec 0</dev/null; exec 2>&1; cd /vagrant; bash -x ./autogen.sh && ./configure LDFLAGS='-L/ssl -L/ssl/lib -L/ssl/lib/MinGW' CFLAGS=-I/ssl/include && make -j20 verify"
       SHELL
     end
   end

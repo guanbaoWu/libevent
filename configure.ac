@@ -5,27 +5,16 @@ dnl See LICENSE for copying information.
 dnl
 dnl Original version Dug Song <dugsong@monkey.org>
 
-AC_INIT(libevent,2.1.7-beta)
+AC_INIT(libevent,2.2.0-alpha-dev)
 AC_PREREQ(2.59)
 AC_CONFIG_SRCDIR(event.c)
 
 AC_CONFIG_MACRO_DIR([m4])
-
-# 'foreign' means that we're not enforcing GNU package rules strictly.
-# '1.9' means that we need automake 1.9 or later (and we do).
-# serial-tests means that we don't need parallel test harness
-AM_INIT_AUTOMAKE(m4_esyscmd([echo foreign 1.9 subdir-objects
-    case `automake --version | head -n 1` in
-    *1.9*);;
-    *1.10*);;
-    *1.11*);;
-    *) echo serial-tests;;
-    esac]))
-
+AM_INIT_AUTOMAKE
 dnl AM_SILENT_RULES req. automake 1.11.  [no] defaults V=1
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_CONFIG_HEADERS(config.h  evconfig-private.h:evconfig-private.h.in)
-AC_DEFINE(NUMERIC_VERSION, 0x02010700, [Numeric representation of the version])
+AC_DEFINE(NUMERIC_VERSION, 0x02020001, [Numeric representation of the version])
 
 dnl Initialize prefix.
 if test "$prefix" = "NONE"; then
@@ -353,6 +342,7 @@ AC_CHECK_FUNCS([ \
   accept4 \
   arc4random \
   arc4random_buf \
+  arc4random_addrandom \
   eventfd \
   epoll_create1 \
   fcntl \
@@ -610,26 +600,6 @@ main(int argc, char **argv)
 fi
 AM_CONDITIONAL(EPOLL_BACKEND, [test "x$haveepoll" = "xyes"])
 
-AC_MSG_CHECKING(waitpid support WNOWAIT)
-AC_TRY_RUN(
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <stdlib.h>
-
-int
-main(int argc, char** argv)
-{
-    pid_t pid;
-    int status;
-    if ((pid = fork()) == 0) _exit(0);
-    _exit(waitpid(pid, &status, WNOWAIT) == -1);
-}, [AC_MSG_RESULT(yes)
-AC_DEFINE(HAVE_WAITPID_WITH_WNOWAIT, 1,
-[Define if waitpid() supports WNOWAIT])
-], AC_MSG_RESULT(no), AC_MSG_RESULT(no))
-
-
 haveeventports=no
 AC_CHECK_FUNCS(port_create, [haveeventports=yes], )
 if test "x$haveeventports" = "xyes" ; then
@@ -726,8 +696,7 @@ AC_CHECK_MEMBERS([struct in6_addr.s6_addr32, struct in6_addr.s6_addr16, struct s
 #endif
 ])
 
-AC_CHECK_TYPES([struct so_linger],
-[#define HAVE_SO_LINGER], ,
+AC_CHECK_TYPES([struct linger],,,
 [
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -802,10 +771,6 @@ fi
 
 # check if we have and should use openssl
 AM_CONDITIONAL(OPENSSL, [test "$enable_openssl" != "no" && test "$have_openssl" = "yes"])
-if test "x$enable_openssl" = "xyes"; then
-	AC_SEARCH_LIBS([ERR_remove_thread_state], [crypto eay32],
-		[AC_DEFINE(HAVE_ERR_REMOVE_THREAD_STATE, 1, [Define to 1 if you have ERR_remove_thread_stat().])])
-fi
 
 # Add some more warnings which we use in development but not in the
 # released versions.  (Some relevant gcc versions can't handle these.)

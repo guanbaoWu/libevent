@@ -1,4 +1,4 @@
-version: 2.1.7.{build}
+version: 2.2.0.{build}
 
 os: Visual Studio 2015
 
@@ -30,8 +30,6 @@ environment:
     - EVENT_BUILD_METHOD: "cmake"
       EVENT_CMAKE_OPTIONS: "-DEVENT__DISABLE_MM_REPLACEMENT=ON"
     - EVENT_BUILD_METHOD: "cmake"
-      EVENT_CMAKE_OPTIONS: "-DEVENT__ENABLE_VERBOSE_DEBUG=ON"
-    - EVENT_BUILD_METHOD: "cmake"
       EVENT_CMAKE_OPTIONS: "-DCMAKE_C_FLAGS='-DUNICODE -D_UNICODE'"
 init:
   - 'echo Building libevent %version% for Windows'
@@ -49,11 +47,12 @@ build_script:
         bash -lc "echo 'C:\MinGW /mingw' > /etc/fstab"
         bash -lc "echo 'C:\OpenSSL-Win32 /ssl' >> /etc/fstab"
         $env:APPVEYOR_BUILD_FOLDER = $env:APPVEYOR_BUILD_FOLDER -replace "\\", "/"
-        bash -lc "exec 0</dev/null; exec 2>&1; cd $env:APPVEYOR_BUILD_FOLDER; bash -x ./autogen.sh && ./configure LDFLAGS='-L/ssl -L/ssl/lib -L/ssl/lib/MinGW' CFLAGS=-I/ssl/include $env:EVENT_CONFIGURE_OPTIONS && make && make verify"
+        bash -lc "exec 0</dev/null; exec 2>&1; cd $env:APPVEYOR_BUILD_FOLDER; bash -x ./autogen.sh && ./configure LDFLAGS='-L/ssl -L/ssl/lib -L/ssl/lib/MinGW' CFLAGS=-I/ssl/include $env:EVENT_CONFIGURE_OPTIONS && make && make verify -j20"
       } else {
         md build
         cd build
         cmake .. $env:EVENT_CMAKE_OPTIONS
         cmake --build .
+        $env:CTEST_PARALLEL_LEVEL="20"
         ctest --output-on-failure
       }

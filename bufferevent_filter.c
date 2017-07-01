@@ -118,11 +118,11 @@ static inline struct bufferevent_filtered *
 upcast(struct bufferevent *bev)
 {
 	struct bufferevent_filtered *bev_f;
-	if (bev->be_ops != &bufferevent_ops_filter)
+	if (!BEV_IS_FILTER(bev))
 		return NULL;
 	bev_f = (void*)( ((char*)bev) -
 			 evutil_offsetof(struct bufferevent_filtered, bev.bev));
-	EVUTIL_ASSERT(bev_f->bev.bev.be_ops == &bufferevent_ops_filter);
+	EVUTIL_ASSERT(BEV_IS_FILTER(&bev_f->bev.bev));
 	return bev_f;
 }
 
@@ -612,9 +612,12 @@ be_filter_ctrl(struct bufferevent *bev, enum bufferevent_ctrl_op op,
 			bevf->underlying->be_ops->ctrl) {
 		    return (bevf->underlying->be_ops->ctrl)(bevf->underlying, op, data);
 		}
+		EVUTIL_FALLTHROUGH;
 
 	case BEV_CTRL_GET_FD:
+		EVUTIL_FALLTHROUGH;
 	case BEV_CTRL_CANCEL_ALL:
+		EVUTIL_FALLTHROUGH;
 	default:
 		return -1;
 	}
