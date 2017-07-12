@@ -203,6 +203,11 @@ evutil_socketpair(int family, int type, int protocol, evutil_socket_t fd[2])
 #endif
 }
 
+
+/**
+* 实现了socketpair的函数的功能,同一主机上的c/s的两个socket
+**/
+
 int
 evutil_ersatz_socketpair_(int family, int type, int protocol,
     evutil_socket_t fd[2])

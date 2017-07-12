@@ -94,6 +94,9 @@ main(int argc, char **argv)
 	(void) WSAStartup(wVersionRequested, &wsaData);
 #endif
 
+    /**
+    * 创建AF_UNIX协议族,socketpair创建全双工流管道(SOCK_STREAM)
+    **/
 	if (evutil_socketpair(AF_UNIX, SOCK_STREAM, 0, pair) == -1)
 		return (1);
 
