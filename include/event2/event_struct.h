@@ -132,6 +132,9 @@ struct event {
 
 	struct event_base *ev_base;
 
+    /**
+    * 事件联合体(IO/SIGNAL)
+    **/
 	union {
 		/* used for io events */
 		struct {
@@ -148,7 +151,7 @@ struct event {
 		} ev_signal;
 	} ev_;
 
-	short ev_events;
+	short ev_events;    /* event事件:EV_TIMEOUT,EV_READ,EV_WRITE,EV_SIGNAL,EV_PERSIST */
 	short ev_res;		/* result passed to event callback */
 	struct timeval ev_timeout;
 };
