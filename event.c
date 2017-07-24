@@ -573,6 +573,9 @@ event_base_new_with_config(const struct event_config *cfg)
 	event_debug_mode_too_late = 1;
 #endif
 
+    /**
+    * init struct base 0
+    **/
 	if ((base = mm_calloc(1, sizeof(struct event_base))) == NULL) {
 		event_warn("%s: calloc", __func__);
 		return NULL;
@@ -589,6 +592,10 @@ event_base_new_with_config(const struct event_config *cfg)
 		int precise_time =
 		    cfg && (cfg->flags & EVENT_BASE_FLAG_PRECISE_TIMER);
 		int flags;
+
+		/**
+		* 获取环境变量EVENT_PRECISE_TIMER
+		**/
 		if (should_check_environment && !precise_time) {
 			precise_time = evutil_getenv_("EVENT_PRECISE_TIMER") != NULL;
 			base->flags |= EVENT_BASE_FLAG_PRECISE_TIMER;

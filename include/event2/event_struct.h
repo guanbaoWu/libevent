@@ -106,7 +106,7 @@ struct event;
 
 struct event_callback {
 	TAILQ_ENTRY(event_callback) evcb_active_next;
-	short evcb_flags;
+	short evcb_flags;       /* 定义为宏定义ev_flags,表示当前状态 */
 	ev_uint8_t evcb_pri;	/* smaller numbers are higher priority */
 	ev_uint8_t evcb_closure;
 	/* allows us to adopt for different types of events */
